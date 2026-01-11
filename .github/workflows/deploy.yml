@@ -1,0 +1,37 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ] # 형님 메인 브랜치 이름이 'main'인지 'master'인지 확인! (요즘은 보통 main)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # 1. 자바(Java) 세팅 (플러터 빌드에 필요)
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # 2. 플러터 설치
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      # 3. 패키지 다운로드
+      - run: flutter pub get
+
+      # 4. 🔥 [핵심] 웹으로 빌드하기 (base-href 설정 필수!)
+      # 형님 리파지토리 이름이 'emily_pantheon'이니까 아래처럼 설정해야 흰 화면이 안 뜹니다.
+      - run: flutter build web --release --base-href "/emily_pantheon/"
+
+      # 5. 깃허브 페이지 배포 (gh-pages 브랜치로 업로드)
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
