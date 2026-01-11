@@ -2,62 +2,67 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main, master ] # main이든 master든 푸시되면 무조건 작동!
+    branches: [ main, master ] # main이나 master 어느 쪽이든 푸시되면 작동
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. 소스 코드 가져오기
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 🕵️‍♂️ [CCTV 단계] 여기서 파일이 어디 있는지 로그에 무조건 찍힙니다.
-      - name: Debug - Show me the files
-        run: |
-          echo "=== 1. 현재 작업 위치 ==="
-          pwd
-          echo "=== 2. 최상위 파일 목록 ==="
-          ls -F
-          echo "=== 3. 모든 폴더 샅샅이 뒤지기 ==="
-          find . -maxdepth 2 -not -path '*/.*'
-
+      # 2. 자바(Java) 설치
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
 
+      # 3. 플러터(Flutter) 엔진 설치
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      # 🔥 [핵심] pubspec.yaml이 어디 있든 찾아가서 일하는 로직
-      - name: Build Web
+      # 4. 프로젝트 위치 탐색 및 웹 설정/빌드
+      - name: Find, Configure and Build Web
         run: |
-          # pubspec.yaml이 있는 위치 찾기
+          # pubspec.yaml 파일이 있는 위치를 자동으로 찾습니다.
           PUB_PATH=$(find . -name "pubspec.yaml" -not -path '*/.*' | head -n 1)
+          
           if [ -z "$PUB_PATH" ]; then
-            echo "❌ 에러: 리파지토리에 pubspec.yaml 파일이 아예 없습니다!"
+            echo "❌ 에러: 리파지토리에 pubspec.yaml 파일이 없습니다!"
             exit 1
           fi
           
-          # 파일이 있는 폴더로 이동
+          # 프로젝트 루트 폴더로 이동
           PROJECT_ROOT=$(dirname "$PUB_PATH")
           echo "✅ 프로젝트 루트 발견: $PROJECT_ROOT"
           cd "$PROJECT_ROOT"
           
+          # 💡 [핵심] 빠져있는 web 폴더 및 설정을 강제로 생성합니다.
+          echo "🌐 웹 플랫폼 설정 생성 중..."
+          flutter create . --platforms web
+          
+          # 패키지 다운로드
+          echo "📦 패키지 다운로드 중..."
           flutter pub get
+          
+          # 웹 빌드 실행 (리파지토리 이름 emily_pantheon 기준)
+          echo "🏗️ 웹 빌드 시작..."
           flutter build web --release --base-href "/emily_pantheon/"
           
-          # 배포를 위해 결과물을 루트의 build 폴더로 이동
+          # 배포를 위해 빌드 결과물을 최상위(Root)의 build/web 폴더로 이동시킵니다.
           if [ "$PROJECT_ROOT" != "." ]; then
+            echo "🚚 빌드 결과물 이동 중..."
             mkdir -p ../build
             mv build/web ../build/web
           fi
 
-      - name: Deploy
+      # 5. gh-pages 브랜치로 빌드 결과물 배포
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
