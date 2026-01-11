@@ -2,35 +2,62 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ] # 형님 메인 브랜치 이름이 'main'인지 'master'인지 확인! (요즘은 보통 main)
+    branches: [ main, master ] # main이든 master든 푸시되면 무조건 작동!
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      # 1. 자바(Java) 세팅 (플러터 빌드에 필요)
-      - uses: actions/setup-java@v3
+      # 🕵️‍♂️ [CCTV 단계] 여기서 파일이 어디 있는지 로그에 무조건 찍힙니다.
+      - name: Debug - Show me the files
+        run: |
+          echo "=== 1. 현재 작업 위치 ==="
+          pwd
+          echo "=== 2. 최상위 파일 목록 ==="
+          ls -F
+          echo "=== 3. 모든 폴더 샅샅이 뒤지기 ==="
+          find . -maxdepth 2 -not -path '*/.*'
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 2. 플러터 설치
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+
+      # 🔥 [핵심] pubspec.yaml이 어디 있든 찾아가서 일하는 로직
+      - name: Build Web
+        run: |
+          # pubspec.yaml이 있는 위치 찾기
+          PUB_PATH=$(find . -name "pubspec.yaml" -not -path '*/.*' | head -n 1)
+          if [ -z "$PUB_PATH" ]; then
+            echo "❌ 에러: 리파지토리에 pubspec.yaml 파일이 아예 없습니다!"
+            exit 1
+          fi
           
-      # 3. 패키지 다운로드
-      - run: flutter pub get
+          # 파일이 있는 폴더로 이동
+          PROJECT_ROOT=$(dirname "$PUB_PATH")
+          echo "✅ 프로젝트 루트 발견: $PROJECT_ROOT"
+          cd "$PROJECT_ROOT"
+          
+          flutter pub get
+          flutter build web --release --base-href "/emily_pantheon/"
+          
+          # 배포를 위해 결과물을 루트의 build 폴더로 이동
+          if [ "$PROJECT_ROOT" != "." ]; then
+            mkdir -p ../build
+            mv build/web ../build/web
+          fi
 
-      # 4. 🔥 [핵심] 웹으로 빌드하기 (base-href 설정 필수!)
-      # 형님 리파지토리 이름이 'emily_pantheon'이니까 아래처럼 설정해야 흰 화면이 안 뜹니다.
-      - run: flutter build web --release --base-href "/emily_pantheon/"
-
-      # 5. 깃허브 페이지 배포 (gh-pages 브랜치로 업로드)
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
