@@ -1,0 +1,48 @@
+name: Deploy Backend to Hugging Face
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-hf-backend.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install huggingface_hub
+        run: pip install "huggingface_hub>=0.26.0"
+
+      - name: Upload backend to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "❌ HF_TOKEN secret is not configured."
+            echo "Add a Hugging Face write token at: Settings → Secrets → Actions → HF_TOKEN"
+            exit 1
+          fi
+
+          python << 'PYEOF'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          api.upload_folder(
+              folder_path="backend",
+              repo_id="benjamin5607/my-fortune-project",
+              repo_type="space",
+              commit_message="Deploy Emily Pantheon backend from GitHub Actions",
+          )
+          print("✅ Backend uploaded to benjamin5607/my-fortune-project")
+          PYEOF
