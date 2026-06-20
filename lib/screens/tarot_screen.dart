@@ -132,11 +132,24 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
     ];
     return Column(
       children: [
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
         GoldAvatar(asset: 'assets/images/tarot.png'),
+        const SizedBox(height: 16),
+        Text(
+          AppLocalizations.get('tarot_intro_title', widget.lang),
+          style: GoogleFonts.cinzel(fontSize: 26, color: Colors.amber, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          AppLocalizations.get('tarot_intro_desc', widget.lang),
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white60, fontSize: 14, height: 1.5),
+        ),
+        const SizedBox(height: 24),
+        Text(AppLocalizations.get('tarot_topic', widget.lang), style: GoogleFonts.cinzel(fontSize: 22, color: Colors.white)),
+        const SizedBox(height: 4),
+        Text(AppLocalizations.get('tarot_topic_sub', widget.lang), style: const TextStyle(color: Colors.white38, fontSize: 13)),
         const SizedBox(height: 20),
-        Text(AppLocalizations.get('tarot_topic', widget.lang), style: GoogleFonts.cinzel(fontSize: 24, color: Colors.white)),
-        const SizedBox(height: 30),
         Wrap(
           spacing: 15,
           runSpacing: 15,
@@ -156,7 +169,9 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
     return Column(
       children: [
         Text(AppLocalizations.get('timeframe', widget.lang), style: GoogleFonts.cinzel(fontSize: 24, color: Colors.white)),
-        const SizedBox(height: 30),
+        const SizedBox(height: 4),
+        Text(AppLocalizations.get('timeframe_sub', widget.lang), style: const TextStyle(color: Colors.white38, fontSize: 13)),
+        const SizedBox(height: 24),
         Wrap(
           spacing: 15,
           runSpacing: 15,

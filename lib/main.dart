@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'l10n.dart'; 
+import 'l10n.dart';
+import 'screens/welcome_screen.dart';
 import 'screens/tarot_screen.dart';
 import 'screens/fengshui_screen.dart';
 import 'screens/saju_screen.dart';
@@ -15,11 +16,14 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   AppLanguage _currLang = AppLanguage.korean;
+  bool _entered = false;
 
   void _changeLanguage(AppLanguage lang) {
-    setState(() {
-      _currLang = lang;
-    });
+    setState(() => _currLang = lang);
+  }
+
+  void _enterApp() {
+    setState(() => _entered = true);
   }
 
   @override
@@ -32,11 +36,18 @@ class _MyAppState extends State<MyApp> {
         colorScheme: const ColorScheme.dark(primary: Colors.amber, secondary: Colors.cyanAccent),
         textTheme: GoogleFonts.nanumMyeongjoTextTheme(ThemeData.dark().textTheme),
       ),
-      home: MainLayoutScreen(
-        key: ValueKey(_currLang), 
-        currLang: _currLang,
-        onLangChanged: _changeLanguage,
-      ),
+      home: _entered
+          ? MainLayoutScreen(
+              key: ValueKey(_currLang),
+              currLang: _currLang,
+              onLangChanged: _changeLanguage,
+            )
+          : WelcomeScreen(
+              key: ValueKey(_currLang),
+              lang: _currLang,
+              onLangChanged: _changeLanguage,
+              onEnter: _enterApp,
+            ),
     );
   }
 }
