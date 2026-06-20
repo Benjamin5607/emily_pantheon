@@ -13,7 +13,7 @@ GROQ_MODELS = [
 
 DEFAULT_GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 FALLBACK_GROQ_MODEL = os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
-DEFAULT_HF_MODEL = os.getenv("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+DEFAULT_HF_MODEL = os.getenv("HF_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 
 TAROT_DECK = [
     {"name": "The Fool", "id": 0, "desc": "새로운 시작, 모험, 순수함", "image": "https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg"},

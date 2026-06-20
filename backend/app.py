@@ -20,7 +20,7 @@ from config import (
 )
 from personas import get_dynamic_persona, normalize_lang
 
-app = FastAPI(title="AI Pantheon API", version="0.2.4")
+app = FastAPI(title="AI Pantheon API", version="0.2.5")
 
 app.add_middleware(
     CORSMiddleware,
@@ -93,13 +93,13 @@ def _call_hf_inference(system_prompt: str, user_prompt: str, temperature: float 
     if not token:
         raise RuntimeError("HF_TOKEN is not set")
 
-    client = InferenceClient(model=DEFAULT_HF_MODEL, token=token)
+    client = InferenceClient(model=DEFAULT_HF_MODEL, token=token, timeout=90)
     response = client.chat_completion(
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        max_tokens=2048,
+        max_tokens=1200,
         temperature=temperature,
     )
     content = response.choices[0].message.content
