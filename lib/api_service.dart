@@ -29,21 +29,29 @@ class ApiService {
     
     // 🔥 [수정] 이제 복잡한 프롬프트 주입 없이 깔끔하게 보냅니다.
     // 서버가 'lang'을 보고 알아서 판단하기 때문입니다.
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "cards": cards,
-        "topic": topic,
-        "query": query, 
-        "lang": lang,
-      }),
-    );
+    final response = await http
+        .post(
+          url,
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "cards": cards,
+            "topic": topic,
+            "query": query,
+            "lang": lang,
+          }),
+        )
+        .timeout(const Duration(seconds: 120));
 
     if (response.statusCode == 200) {
-      return jsonDecode(utf8.decode(response.bodyBytes))["result"];
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final result = body["result"];
+      if (result == null || result.toString().isEmpty) {
+        throw Exception("Tarot Error: empty response from server");
+      }
+      return result.toString();
     } else {
-      throw Exception("Tarot Error: ${response.statusCode}");
+      final detail = utf8.decode(response.bodyBytes);
+      throw Exception("Tarot Error ${response.statusCode}: $detail");
     }
   }
 

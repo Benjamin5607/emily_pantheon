@@ -4,51 +4,55 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 import 'l10n.dart';
 
-class RoutingService {
-  static const List<String> clicheKeywords = [
-    '구남친', '전남친', '재회', '연락',
-    '이직', '합격', '면접', '승진',
-    '돈', '로또', '대출', '투자',
-    'ex', 'boyfriend', 'lottery', 'job', 'money',
-  ];
+class TarotConsultationResult {
+  final String text;
+  final bool isAi;
+  const TarotConsultationResult({required this.text, required this.isAi});
+}
 
-  static Future<String> getConsultation({
+class RoutingService {
+  static Future<TarotConsultationResult> getConsultation({
     required List<String> cards,
     required String topic,
     required String query,
     required String lang,
     AppLanguage? appLang,
   }) async {
+    final resolvedLang = appLang ?? _langFromServerCode(lang);
     String cleanQuery = query.trim();
     print("🔍 [Router] 타로 분석 시작: '$cleanQuery'");
 
-    if (cleanQuery.length < 10) {
-      print("🚀 [Filter 1] 짧은 질문 -> Tier 1 (기본 해석)");
-      return await _getTier1BasicResponse(cards, topic, lang, appLang);
-    }
-
-    for (String keyword in clicheKeywords) {
-      if (cleanQuery.toLowerCase().contains(keyword.toLowerCase())) {
-        print("🚀 [Filter 2] 뻔한 키워드('$keyword') -> Tier 1 (기본 해석)");
-        return await _getTier1BasicResponse(cards, topic, lang, appLang);
-      }
+    // Only skip AI for empty/trivial input (1-2 chars)
+    if (cleanQuery.length < 3) {
+      print("🚀 [Filter] 질문이 너무 짧음 -> Tier 1 (기본 해석)");
+      return TarotConsultationResult(
+        text: await _getTier1BasicResponse(cards, topic, lang, appLang, includeHeader: true),
+        isAi: false,
+      );
     }
 
     String cacheKey = "tarot_${cleanQuery.replaceAll(' ', '')}_${cards.join()}";
     String? cached = await _checkCache(cacheKey);
     if (cached != null) {
-      print("🚀 [Filter 3] 캐시 적중 -> 저장된 답변 사용");
-      return cached;
+      print("🚀 [Cache] 저장된 AI 답변 재사용");
+      return TarotConsultationResult(text: cached, isAi: true);
     }
 
-    print("🔮 [Tier 2] AI 에밀리 소환!");
+    print("🔮 [AI] 에밀리 AI 소환!");
     try {
-      String result = await ApiService.readTarot(cards: cards, topic: topic, query: cleanQuery, lang: lang);
+      String result = await ApiService.readTarot(
+        cards: cards,
+        topic: topic,
+        query: cleanQuery,
+        lang: lang,
+      );
       await _saveToCache(cacheKey, result);
-      return result;
+      return TarotConsultationResult(text: result, isAi: true);
     } catch (e) {
-      print("⚠️ AI 호출 실패 -> 비상용 Tier 1 데이터 사용");
-      return await _getTier1BasicResponse(cards, topic, lang, appLang);
+      print("⚠️ AI 호출 실패: $e");
+      final notice = AppLocalizations.get('ai_fallback_notice', resolvedLang);
+      final fallback = await _getTier1BasicResponse(cards, topic, lang, appLang, includeHeader: true);
+      return TarotConsultationResult(text: "$notice\n\n$fallback", isAi: false);
     }
   }
 
@@ -56,15 +60,19 @@ class RoutingService {
     List<String> cards,
     String topic,
     String lang,
-    AppLanguage? appLang,
-  ) async {
+    AppLanguage? appLang, {
+    bool includeHeader = true,
+  }) async {
     try {
       final String jsonString = await rootBundle.loadString('assets/tier1_data.json');
       final Map<String, dynamic> data = jsonDecode(jsonString);
 
       final resolvedLang = appLang ?? _langFromServerCode(lang);
       StringBuffer result = StringBuffer();
-      result.writeln(AppLocalizations.get('tier1_header', resolvedLang));
+
+      if (includeHeader) {
+        result.writeln(AppLocalizations.get('tier1_header', resolvedLang));
+      }
 
       String key = appLang != null
           ? AppLocalizations.topicToTier1Key(topic, appLang)

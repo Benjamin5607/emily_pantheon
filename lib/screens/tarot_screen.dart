@@ -24,6 +24,7 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
   final List<String> _selectedCards = [];
   final Map<String, FlipCardController> _flipControllers = {};
   bool _isLoading = false;
+  bool _isAiReading = false;
   String _result = '';
 
   final Map<String, String> _cardImageMap = {
@@ -61,7 +62,11 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
   }
 
   Future<void> _loadDeck() async {
-    final deck = await ApiService.getTarotDeck();
+    var deck = await ApiService.getTarotDeck();
+    if (deck.isEmpty) {
+      deck = _cardImageMap.keys.map((name) => {'name': name}).toList();
+    }
+    if (!mounted) return;
     setState(() => _deck = deck);
   }
 
@@ -78,11 +83,14 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
       );
       if (!mounted) return;
       setState(() {
-        _result = result;
+        _result = result.text;
+        _isAiReading = result.isAi;
         _step = 4;
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -304,7 +312,9 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "${AppLocalizations.get('tarot_reading_title', widget.lang)}:",
+                _isAiReading
+                    ? AppLocalizations.get('reading_badge_ai', widget.lang)
+                    : AppLocalizations.get('reading_badge_basic', widget.lang),
                 style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
@@ -315,7 +325,7 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
         const SizedBox(height: 30),
         ElevatedButton.icon(
           onPressed: () {
-            setState(() { _step = 0; _selectedCards.clear(); _selectedTopic = ''; _queryController.clear(); _result = ''; _flipControllers.clear(); });
+            setState(() { _step = 0; _selectedCards.clear(); _selectedTopic = ''; _queryController.clear(); _result = ''; _isAiReading = false; _flipControllers.clear(); });
           },
           icon: const Icon(Icons.refresh, color: Colors.black),
           label: Text(AppLocalizations.get('btn_reset', widget.lang), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
