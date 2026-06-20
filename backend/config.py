@@ -1,10 +1,8 @@
 import os
 from groq import Groq
+from huggingface_hub import InferenceClient
 
 # Groq production models (updated June 2026)
-# Primary: best quality for spiritual/persona-heavy readings
-# Fast: cost-efficient fallback
-# Backup: strong multilingual alternative
 GROQ_MODELS = [
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
@@ -13,8 +11,9 @@ GROQ_MODELS = [
     "llama-3.1-8b-instant",
 ]
 
-DEFAULT_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-FALLBACK_MODEL = os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
+DEFAULT_GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+FALLBACK_GROQ_MODEL = os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
+DEFAULT_HF_MODEL = os.getenv("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 
 TAROT_DECK = [
     {"name": "The Fool", "id": 0, "desc": "새로운 시작, 모험, 순수함", "image": "https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg"},
@@ -42,27 +41,52 @@ TAROT_DECK = [
 ]
 
 
+def get_groq_api_key() -> str | None:
+    for name in ("GROQ_API_KEY", "GROQ_KEY"):
+        value = os.getenv(name)
+        if value:
+            return value
+    return None
+
+
+def get_hf_token() -> str | None:
+    for name in ("HF_TOKEN", "HUGGINGFACEHUB_API_TOKEN"):
+        value = os.getenv(name)
+        if value:
+            return value
+    return None
+
+
+def get_active_provider() -> str:
+    if get_groq_api_key():
+        return "groq"
+    if get_hf_token():
+        return "huggingface"
+    return "none"
+
+
 def get_groq_client() -> Groq:
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = get_groq_api_key()
     if not api_key:
-        raise RuntimeError("GROQ_API_KEY environment variable is not set")
+        raise RuntimeError("GROQ_API_KEY is not set")
     return Groq(api_key=api_key)
 
 
-def list_available_models(api_key: str | None = None) -> list[str]:
-    """Fetch live model list from Groq, filtered for chat use."""
-    try:
-        client = Groq(api_key=api_key or os.getenv("GROQ_API_KEY"))
-        live = [
-            m.id
-            for m in client.models.list().data
-            if "whisper" not in m.id
-            and "orpheus" not in m.id
-            and "prompt-guard" not in m.id
-            and "safeguard" not in m.id
-        ]
-        ordered = [m for m in GROQ_MODELS if m in live]
-        extras = [m for m in live if m not in ordered]
-        return ordered + extras
-    except Exception:
-        return GROQ_MODELS.copy()
+def list_available_models() -> list[str]:
+    if get_groq_api_key():
+        try:
+            client = get_groq_client()
+            live = [
+                m.id
+                for m in client.models.list().data
+                if "whisper" not in m.id
+                and "orpheus" not in m.id
+                and "prompt-guard" not in m.id
+                and "safeguard" not in m.id
+            ]
+            ordered = [m for m in GROQ_MODELS if m in live]
+            extras = [m for m in live if m not in ordered]
+            return ordered + extras
+        except Exception:
+            return GROQ_MODELS.copy()
+    return [DEFAULT_HF_MODEL]

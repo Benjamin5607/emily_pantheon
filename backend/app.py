@@ -1,15 +1,26 @@
 import os
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
+from huggingface_hub import InferenceClient
 from pydantic import BaseModel, Field
 
-from config import DEFAULT_MODEL, FALLBACK_MODEL, TAROT_DECK, get_groq_client, list_available_models
+from config import (
+    DEFAULT_GROQ_MODEL,
+    DEFAULT_HF_MODEL,
+    FALLBACK_GROQ_MODEL,
+    TAROT_DECK,
+    get_active_provider,
+    get_groq_api_key,
+    get_groq_client,
+    get_hf_token,
+    list_available_models,
+)
 from personas import get_dynamic_persona, normalize_lang
 
-app = FastAPI(title="AI Pantheon API", version="0.2.3")
+app = FastAPI(title="AI Pantheon API", version="0.2.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,9 +61,8 @@ class SajuRequest(BaseModel):
 
 def _call_groq(system_prompt: str, user_prompt: str, temperature: float = 0.85) -> str:
     client = get_groq_client()
-    models = [DEFAULT_MODEL, FALLBACK_MODEL]
-    live = list_available_models()
-    for model in live:
+    models = [DEFAULT_GROQ_MODEL, FALLBACK_GROQ_MODEL]
+    for model in list_available_models():
         if model not in models:
             models.append(model)
 
@@ -78,14 +88,60 @@ def _call_groq(system_prompt: str, user_prompt: str, temperature: float = 0.85) 
     raise RuntimeError(f"All Groq models failed: {last_error}")
 
 
+def _call_hf_inference(system_prompt: str, user_prompt: str, temperature: float = 0.85) -> str:
+    token = get_hf_token()
+    if not token:
+        raise RuntimeError("HF_TOKEN is not set")
+
+    client = InferenceClient(model=DEFAULT_HF_MODEL, token=token)
+    response = client.chat_completion(
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        max_tokens=2048,
+        temperature=temperature,
+    )
+    content = response.choices[0].message.content
+    if not content:
+        raise RuntimeError("Empty response from Hugging Face Inference")
+    return content.strip()
+
+
+def _call_llm(system_prompt: str, user_prompt: str, temperature: float = 0.85) -> str:
+    provider = get_active_provider()
+    if provider == "groq":
+        return _call_groq(system_prompt, user_prompt, temperature)
+    if provider == "huggingface":
+        return _call_hf_inference(system_prompt, user_prompt, temperature)
+    raise HTTPException(
+        status_code=503,
+        detail="No AI provider configured. Set GROQ_API_KEY or HF_TOKEN in Space secrets.",
+    )
+
+
 @app.get("/")
 def read_root():
     return {"message": "Server is Running!"}
 
 
+@app.get("/health")
+def health():
+    provider = get_active_provider()
+    return {
+        "status": "ok" if provider != "none" else "degraded",
+        "provider": provider,
+        "version": app.version,
+    }
+
+
 @app.get("/models")
 def get_models():
-    return {"models": list_available_models(), "default": DEFAULT_MODEL, "fallback": FALLBACK_MODEL}
+    provider = get_active_provider()
+    models = list_available_models()
+    if provider == "groq":
+        return {"provider": "groq", "models": models, "default": DEFAULT_GROQ_MODEL, "fallback": FALLBACK_GROQ_MODEL}
+    return {"provider": provider, "models": models, "default": DEFAULT_HF_MODEL}
 
 
 @app.get("/tarot/deck")
@@ -104,7 +160,7 @@ def read_tarot(request: TarotRequest):
         f"Question: {request.query}\n\n"
         f"Give a tarot reading as Emily. Interpret each card for this topic and weave them together."
     )
-    result = _call_groq(system, user)
+    result = _call_llm(system, user)
     return {"result": result}
 
 
@@ -119,7 +175,7 @@ def analyze_fengshui(request: FengShuiRequest):
         f"Sleeping head direction: {request.head_dir}\n"
         f"Question: {request.query}"
     )
-    result = _call_groq(system, user)
+    result = _call_llm(system, user)
     return {"result": result}
 
 
@@ -134,7 +190,7 @@ def read_saju(request: SajuRequest):
         f"Deliver a spirit oracle (공수) as Emily the young shaman. "
         f"Reference birth elements naturally but stay in Emily's voice."
     )
-    result = _call_groq(system, user, temperature=0.9)
+    result = _call_llm(system, user, temperature=0.9)
     return {"result": result}
 
 

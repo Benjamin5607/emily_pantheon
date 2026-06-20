@@ -12,6 +12,8 @@ pinned: false
 
 FastAPI backend for Emily's Pantheon (tarot, feng shui, shaman oracle).
 
-Set `GROQ_API_KEY` in Space secrets.
+Set secrets in Space settings (either works):
+- `GROQ_API_KEY` — uses Groq models (recommended)
+- `HF_TOKEN` — fallback via Hugging Face Inference API
 
 <!-- deploy trigger: 2026-06-20 -->
