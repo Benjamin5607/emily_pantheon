@@ -33,9 +33,10 @@ jobs:
 
           git clone "https://${OWNER}:${HF_TOKEN}@huggingface.co/spaces/${REPO_ID}" hf-space
 
-          rsync -av --delete \
+          rsync -av \
             --exclude '__pycache__' \
             --exclude '*.pyc' \
+            --exclude '.git' \
             backend/ hf-space/
 
           cd hf-space
