@@ -151,17 +151,22 @@ def get_tarot_deck():
 
 @app.post("/tarot/read")
 def read_tarot(request: TarotRequest):
-    lang = normalize_lang(request.lang)
-    system = get_dynamic_persona(lang, "tarot")
-    cards_text = ", ".join(request.cards)
-    user = (
-        f"Topic: {request.topic}\n"
-        f"Selected cards: {cards_text}\n"
-        f"Question: {request.query}\n\n"
-        f"Give a tarot reading as Emily. Interpret each card for this topic and weave them together."
-    )
-    result = _call_llm(system, user)
-    return {"result": result}
+    try:
+        lang = normalize_lang(request.lang)
+        system = get_dynamic_persona(lang, "tarot")
+        cards_text = ", ".join(request.cards)
+        user = (
+            f"Topic: {request.topic}\n"
+            f"Selected cards: {cards_text}\n"
+            f"Question: {request.query}\n\n"
+            f"Give a tarot reading as Emily. Interpret each card for this topic and weave them together."
+        )
+        result = _call_llm(system, user)
+        return {"result": result}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.post("/fengshui/analyze")
