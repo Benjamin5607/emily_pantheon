@@ -13,3 +13,5 @@ pinned: false
 FastAPI backend for Emily's Pantheon (tarot, feng shui, shaman oracle).
 
 Set `GROQ_API_KEY` in Space secrets.
+
+<!-- deploy trigger: 2026-06-20 -->
