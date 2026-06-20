@@ -15,15 +15,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install huggingface_hub
-        run: pip install "huggingface_hub>=0.26.0"
-
-      - name: Upload backend to Hugging Face Space
+      - name: Deploy backend to Hugging Face Space (git)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_REPO: ${{ vars.HF_SPACE_REPO }}
@@ -33,44 +25,31 @@ jobs:
             exit 1
           fi
 
-          python << 'PYEOF'
-          import os
-          import sys
-          from huggingface_hub import HfApi
-          from huggingface_hub.errors import RepositoryNotFoundError
+          REPO_ID="${HF_SPACE_REPO:-benjamin5607/my-fortune-project}"
+          OWNER="${REPO_ID%%/*}"
+          SPACE_NAME="${REPO_ID#*/}"
 
-          token = os.environ["HF_TOKEN"]
-          repo_id = os.environ.get("HF_SPACE_REPO") or "benjamin5607/my-fortune-project"
+          echo "📦 Deploying to Space: $REPO_ID"
 
-          api = HfApi(token=token)
-          who = api.whoami()
-          username = who.get("name") or who.get("fullname", "unknown")
-          print(f"✅ Hugging Face login: {username}")
-          print(f"📦 Target Space: {repo_id}")
+          git clone "https://${OWNER}:${HF_TOKEN}@huggingface.co/spaces/${REPO_ID}" hf-space
 
-          owner = repo_id.split("/")[0]
-          if username.lower() != owner.lower():
-              print(f"⚠️  Token user '{username}' != Space owner '{owner}'")
-              print("   Ensure HF_TOKEN belongs to the Space owner account.")
+          rsync -av --delete \
+            --exclude '__pycache__' \
+            --exclude '*.pyc' \
+            backend/ hf-space/
 
-          try:
-              api.space_info(repo_id)
-              print(f"✅ Space found: {repo_id}")
-          except RepositoryNotFoundError:
-              print(f"⚠️  Space not found. Creating {repo_id} ...")
-              api.create_repo(
-                  repo_id=repo_id,
-                  repo_type="space",
-                  space_sdk="docker",
-                  exist_ok=True,
-              )
+          cd hf-space
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
 
-          api.upload_folder(
-              folder_path="backend",
-              repo_id=repo_id,
-              repo_type="space",
-              commit_message="Deploy Emily Pantheon backend from GitHub Actions",
-              ignore_patterns=["**/__pycache__/**", "**/*.pyc"],
-          )
-          print(f"✅ Backend uploaded to https://huggingface.co/spaces/{repo_id}")
-          PYEOF
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "ℹ️ No file changes to deploy."
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "Deploy Emily Pantheon backend from GitHub Actions"
+          git push origin main
+
+          echo "✅ Pushed to https://huggingface.co/spaces/${REPO_ID}"
+          echo "🔄 Space will rebuild automatically (Docker)."
