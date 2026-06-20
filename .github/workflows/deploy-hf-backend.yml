@@ -25,7 +25,7 @@ jobs:
             exit 1
           fi
 
-          REPO_ID="${HF_SPACE_REPO:-benjamin5607/my-fortune-project}"
+          REPO_ID="${HF_SPACE_REPO:-benjamin5607/my_fortune_project}"
           OWNER="${REPO_ID%%/*}"
           SPACE_NAME="${REPO_ID#*/}"
 

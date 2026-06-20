@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from config import DEFAULT_MODEL, FALLBACK_MODEL, TAROT_DECK, get_groq_client, list_available_models
 from personas import get_dynamic_persona, normalize_lang
 
-app = FastAPI(title="AI Pantheon API", version="0.2.2")
+app = FastAPI(title="AI Pantheon API", version="0.2.3")
 
 app.add_middleware(
     CORSMiddleware,
