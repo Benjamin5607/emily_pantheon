@@ -31,6 +31,7 @@ jobs:
 
           echo "📦 Deploying to Space: $REPO_ID"
 
+          rm -rf hf-space
           git clone "https://${OWNER}:${HF_TOKEN}@huggingface.co/spaces/${REPO_ID}" hf-space
 
           rsync -av \
