@@ -26,23 +26,51 @@ jobs:
       - name: Upload backend to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_REPO: ${{ vars.HF_SPACE_REPO }}
         run: |
           if [ -z "$HF_TOKEN" ]; then
             echo "❌ HF_TOKEN secret is not configured."
-            echo "Add a Hugging Face write token at: Settings → Secrets → Actions → HF_TOKEN"
             exit 1
           fi
 
           python << 'PYEOF'
           import os
+          import sys
           from huggingface_hub import HfApi
+          from huggingface_hub.errors import RepositoryNotFoundError
 
-          api = HfApi(token=os.environ["HF_TOKEN"])
+          token = os.environ["HF_TOKEN"]
+          repo_id = os.environ.get("HF_SPACE_REPO") or "benjamin5607/my-fortune-project"
+
+          api = HfApi(token=token)
+          who = api.whoami()
+          username = who.get("name") or who.get("fullname", "unknown")
+          print(f"✅ Hugging Face login: {username}")
+          print(f"📦 Target Space: {repo_id}")
+
+          owner = repo_id.split("/")[0]
+          if username.lower() != owner.lower():
+              print(f"⚠️  Token user '{username}' != Space owner '{owner}'")
+              print("   Ensure HF_TOKEN belongs to the Space owner account.")
+
+          try:
+              api.space_info(repo_id)
+              print(f"✅ Space found: {repo_id}")
+          except RepositoryNotFoundError:
+              print(f"⚠️  Space not found. Creating {repo_id} ...")
+              api.create_repo(
+                  repo_id=repo_id,
+                  repo_type="space",
+                  space_sdk="docker",
+                  exist_ok=True,
+              )
+
           api.upload_folder(
               folder_path="backend",
-              repo_id="benjamin5607/my-fortune-project",
+              repo_id=repo_id,
               repo_type="space",
               commit_message="Deploy Emily Pantheon backend from GitHub Actions",
+              ignore_patterns=["**/__pycache__/**", "**/*.pyc"],
           )
-          print("✅ Backend uploaded to benjamin5607/my-fortune-project")
+          print(f"✅ Backend uploaded to https://huggingface.co/spaces/{repo_id}")
           PYEOF
