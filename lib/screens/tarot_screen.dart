@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_flip_card/flutter_flip_card.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // 웹 이미지 캐싱용
+import 'package:cached_network_image/cached_network_image.dart';
 import '../api_service.dart';
 import '../l10n.dart';
-import '../main.dart'; 
-import '../routing_service.dart'; // 알뜰 라우팅 서비스
+import '../main.dart';
+import '../routing_service.dart';
 
 class CyberTarotScreen extends StatefulWidget {
   final AppLanguage lang;
@@ -16,7 +16,7 @@ class CyberTarotScreen extends StatefulWidget {
 }
 
 class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProviderStateMixin {
-  int _step = 0; 
+  int _step = 0;
   String _selectedTopic = '';
   String _selectedTime = '';
   final TextEditingController _queryController = TextEditingController();
@@ -26,7 +26,6 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
   bool _isLoading = false;
   String _result = '';
 
-  // 1. 위키백과(Wikimedia) 타로 이미지 주소 (앞면용 - 자동 캐싱됨)
   final Map<String, String> _cardImageMap = {
     "The Fool": "https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg",
     "The Magician": "https://upload.wikimedia.org/wikipedia/commons/d/de/RWS_Tarot_01_Magician.jpg",
@@ -52,7 +51,6 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
     "The World": "https://upload.wikimedia.org/wikipedia/commons/f/ff/RWS_Tarot_21_World.jpg",
   };
 
-  // 2. 로컬 이미지 경로 (배경 & 뒷면)
   final String _bgImageAsset = "assets/images/bg_tarot.jpg";
   final String _cardBackAsset = "assets/images/card_back.jpg";
 
@@ -71,13 +69,12 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
     if (_queryController.text.isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      // 🔥 [확인 완료] 이미 여기서 AppLocalizations.getLangName()을 쓰고 계셨습니다!
-      // 현재 언어("Vietnamese", "Japanese" 등)가 그대로 서버로 전달됩니다.
       final result = await RoutingService.getConsultation(
         cards: _selectedCards,
         topic: _selectedTopic,
         query: _queryController.text,
-        lang: AppLocalizations.getLangName(widget.lang),
+        lang: AppLocalizations.getServerLang(widget.lang),
+        appLang: widget.lang,
       );
       if (!mounted) return;
       setState(() {
@@ -128,21 +125,28 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
 
   Widget _buildStep0_Topic() {
     final topics = [
-      {'key': 'topic_love', 'icon': Icons.favorite, 'label': 'Love'},
-      {'key': 'topic_money', 'icon': Icons.attach_money, 'label': 'Money'},
-      {'key': 'topic_work', 'icon': Icons.work, 'label': 'Work'},
-      {'key': 'topic_health', 'icon': Icons.health_and_safety, 'label': 'Health'},
+      {'key': 'topic_love', 'icon': Icons.favorite},
+      {'key': 'topic_money', 'icon': Icons.attach_money},
+      {'key': 'topic_work', 'icon': Icons.work},
+      {'key': 'topic_health', 'icon': Icons.health_and_safety},
     ];
     return Column(
       children: [
         const SizedBox(height: 20),
-        GoldAvatar(asset: 'assets/images/tarot.png'), 
+        GoldAvatar(asset: 'assets/images/tarot.png'),
         const SizedBox(height: 20),
         Text(AppLocalizations.get('tarot_topic', widget.lang), style: GoogleFonts.cinzel(fontSize: 24, color: Colors.white)),
         const SizedBox(height: 30),
-        Wrap(spacing: 15, runSpacing: 15, children: topics.map((t) => _buildOptionBtn(t['icon'] as IconData, AppLocalizations.get(t['key'] as String, widget.lang), (val) {
-          setState(() { _selectedTopic = val; _step = 1; });
-        })).toList())
+        Wrap(
+          spacing: 15,
+          runSpacing: 15,
+          children: topics.map((t) {
+            final label = AppLocalizations.get(t['key'] as String, widget.lang);
+            return _buildOptionBtn(t['icon'] as IconData, label, (val) {
+              setState(() { _selectedTopic = val; _step = 1; });
+            });
+          }).toList(),
+        ),
       ],
     );
   }
@@ -153,9 +157,15 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
       children: [
         Text(AppLocalizations.get('timeframe', widget.lang), style: GoogleFonts.cinzel(fontSize: 24, color: Colors.white)),
         const SizedBox(height: 30),
-        Wrap(spacing: 15, runSpacing: 15, children: times.map((k) => _buildOptionBtn(Icons.timer, AppLocalizations.get(k, widget.lang), (val) {
-          setState(() { _selectedTime = val; _step = 2; });
-        })).toList())
+        Wrap(
+          spacing: 15,
+          runSpacing: 15,
+          children: times.map((k) => _buildOptionBtn(
+            Icons.timer,
+            AppLocalizations.get(k, widget.lang),
+            (val) => setState(() { _selectedTime = val; _step = 2; }),
+          )).toList(),
+        ),
       ],
     );
   }
@@ -171,10 +181,9 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
             maxLines: 3,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: widget.lang == AppLanguage.korean 
-                ? "구체적으로 적으면 AI가,\n짧게 적으면 에밀리 노트가 답해요." 
-                : "Detailed query calls AI.\nShort query calls Basic Note.",
-              hintStyle: TextStyle(color: Colors.grey.shade500), border: InputBorder.none,
+              hintText: AppLocalizations.get('tarot_hint_query', widget.lang),
+              hintStyle: TextStyle(color: Colors.grey.shade500),
+              border: InputBorder.none,
             ),
           ),
         ),
@@ -183,7 +192,7 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
           onPressed: () { if (_queryController.text.isNotEmpty) setState(() => _step = 3); },
           style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
           child: Text(AppLocalizations.get('btn_next', widget.lang), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        )
+        ),
       ],
     );
   }
@@ -225,12 +234,10 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
           const CircularProgressIndicator(color: Colors.amber),
           const SizedBox(height: 10),
           Text(
-            widget.lang == AppLanguage.korean 
-                ? "에밀리가 카드를 해석하고 있습니다..." 
-                : "Emily is reading the cards...",
-            style: const TextStyle(color: Colors.amberAccent, fontSize: 16)
+            AppLocalizations.get('tarot_loading', widget.lang),
+            style: const TextStyle(color: Colors.amberAccent, fontSize: 16),
           ),
-        ]
+        ],
       ],
     );
   }
@@ -245,11 +252,11 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _selectedCards.length,
-            separatorBuilder: (_,__) => const SizedBox(width: 15),
+            separatorBuilder: (_, __) => const SizedBox(width: 15),
             itemBuilder: (context, index) {
               final cardName = _selectedCards[index];
               final imgUrl = _cardImageMap[cardName] ?? "";
-              
+
               if (!_flipControllers.containsKey(cardName)) _flipControllers[cardName] = FlipCardController();
 
               return Column(
@@ -262,7 +269,7 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
                       onTapFlipping: true,
                       frontWidget: Image.asset(_cardBackAsset, fit: BoxFit.cover),
                       backWidget: CachedNetworkImage(
-                        imageUrl: imgUrl, 
+                        imageUrl: imgUrl,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                         errorWidget: (context, url, error) => Container(color: Colors.grey, child: const Icon(Icons.error)),
@@ -281,10 +288,9 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 🔥 [수정] "에밀리의 해석"이라는 한글 텍스트도 언어에 따라 바뀌게 수정!
               Text(
-                widget.lang == AppLanguage.korean ? "에밀리의 해석:" : "Emily's Reading:",
-                style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)
+                "${AppLocalizations.get('tarot_reading_title', widget.lang)}:",
+                style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
               Text(_result, style: const TextStyle(color: Colors.white, height: 1.6, fontSize: 15)),
@@ -299,7 +305,7 @@ class _CyberTarotScreenState extends State<CyberTarotScreen> with TickerProvider
           icon: const Icon(Icons.refresh, color: Colors.black),
           label: Text(AppLocalizations.get('btn_reset', widget.lang), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-        )
+        ),
       ],
     );
   }

@@ -36,7 +36,7 @@ class ApiService {
         "cards": cards,
         "topic": topic,
         "query": query, 
-        "lang": lang, // 서버의 get_dynamic_persona 함수가 이걸 참조함
+        "lang": lang,
       }),
     );
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'api_service.dart';
 import 'l10n.dart'; 
 import 'screens/tarot_screen.dart';
 import 'screens/fengshui_screen.dart';
@@ -69,7 +68,10 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           PopupMenuButton<AppLanguage>(
             icon: const Icon(Icons.language, color: Colors.amber),
             onSelected: widget.onLangChanged,
-            itemBuilder: (context) => AppLanguage.values.map((l) => PopupMenuItem(value: l, child: Text(AppLocalizations.getLangName(l)))).toList(),
+            itemBuilder: (context) => AppLanguage.values.map((l) => PopupMenuItem(
+              value: l,
+              child: Text(AppLocalizations.getLangDisplayName(l, widget.currLang)),
+            )).toList(),
           )
         ],
       ),
